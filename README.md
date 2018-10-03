@@ -1,6 +1,6 @@
 # Text Analytics on Risk Disclosures
 
-## Folder Structures
+## Folder Descriptions
 
 * **repo :** Contains sample of Form 10-K documents in xbrl format from years 2015 to 2018
 
