@@ -1,7 +1,7 @@
 #!/bin/bash
-repo='/media/jishnu/prasath/ISB/repo/filings'
-outdir='/media/jishnu/prasath/ISB/repo/extracted_filings/'
-extract_header_contents='/home/jishnu/Documents/ISB/Term3/capstone/repo/parse_xbrl/extract_header_contents.py'
+repo='/home/jishnu/Documents/ISB/Term3/capstone/repo/isb_capstone-master/repo'
+outdir='/home/jishnu/Documents/ISB/Term3/capstone/repo/isb_capstone-master/extracted_filings/'
+extract_header_contents='/home/jishnu/Documents/ISB/Term3/capstone/repo/isb_capstone-master/scripts/extract_header_contents.py'
 # Iterate over subdirectories
 #for d in $(find $repo -maxdepth 1 -type d); do
 #	find $d -type f -name "*.xbrl" -maxdepth 1
