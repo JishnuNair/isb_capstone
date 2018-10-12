@@ -7,7 +7,6 @@
 * **scripts :** Contains scripts used for downloading Form 10-K documents, and those used for extracting headers and contents for Section 1-A.
 	* _download_index.py :_ For downloading all the xbrl file url's based on at start year. The url's are saved in a sqlite database
 	* _download_filings.py :_ For downloading the xbrl form 10-K files by selecting from the sqlite database. The downloaded files are saved with company ticker as directory name
-	* _parse_xbrl.sh :_ Reads all xbrl files in input directory and sub-directories, and extracts Section 1-A html. After writing extracted content to a seperate file, this script calls the _extract_header_contents_ python script for extracting header and contents.
-	* _extract_header_contents.py_ : For each html file passed to this script, the bold sections are extracted as headers, and any content which comes between headers are extracted seperately as paragraph content. The extracted header and contents are saved in separate directories as delimited text files.
+	* _parse_xbrl.py :_ Reads all xbrl files in input directory and sub-directories, and extracts Section 1-A as html. After writing extracted content to a seperate file, this script then extracts the headers and contents to seperate files in the same directory as each xbrl file. Those files for which extracting Section 1A has failed are copied over to "failed_files" directory
 
-* **extracted_filings :** Contains extracted headers and contents as text files, for the document samples in repo directory. The extracted headers and contents text files are organized by year and company ticker.
+* **failed_files :** Contains files for which extracting Section 1-A has failed. This should serve as reference for improving present extraction logic.
