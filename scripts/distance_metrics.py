@@ -3,6 +3,7 @@ import os
 import glob
 import re
 import shorttext
+import sqlite3
 import pandas as pd
 import numpy as np
 from nltk.stem import PorterStemmer
@@ -125,6 +126,13 @@ def pair_sim(docid,dtm):
 		cos_dict[doc] = cosine_sim(doc_dict1,doc_dict2)
 	return cos_dict
 
+def write_db(repo_dir,sim_matrix):
+	# Creating/Connecting sqlite database
+	conn = sqlite3.connect('{0}/stats.db'.format(repo_dir))
+	sim_matrix.to_sql('cos_sim_matrix', con=conn, if_exists='replace', index=False)
+	conn.commit()
+	conn.close()
+
 def main(args):
 	repo_dir = args.dir
 	repo_dir = os.path.abspath(repo_dir)
@@ -148,6 +156,9 @@ def main(args):
 		sim_matrix = sim_matrix.append(pair_sim(docid,dtm),ignore_index=True)
 	# Writing calculated similarity matrix to csv file
 	sim_matrix.to_csv('{0}/cosine_sim_matrix.csv'.format(repo_dir),index=False)
+	# Writing calculated similarity matrix to sqlite database
+	write_db(repo_dir,sim_matrix)
+
 
 
 if __name__ == '__main__':
