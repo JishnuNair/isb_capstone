@@ -2,13 +2,15 @@ import argparse
 import os
 import glob
 import re
-import shorttext
+# import shorttext
 import sqlite3
 import pandas as pd
 import numpy as np
 from nltk.stem import PorterStemmer
-from numpy import dot
-from numpy.linalg import norm
+# from numpy import dot
+# from numpy.linalg import norm
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import linear_kernel
 """
 This python script is used to calculate the similarity/distance metrics for pairs of 10-K documents.
 
@@ -35,6 +37,8 @@ Things to be calculated:
 	  This will be a large dataframe, bound to face performance issues.
 	  Available packages : shorttext, scikit-learn(CountVectorizer), textmining
 	  shorttext package looks useful. Creating a pandas dataframe is not necessary if this works.
+
+	 * EDIT : shorttext package replaced with TfIdfVectorizer from scikit learn
 """
 
 parser = argparse.ArgumentParser()
@@ -72,7 +76,7 @@ def get_docs_dict(repo_dir):
 		content_dict[key] = content_word_list
 	# Creating doc dict
 	for key,values in header_dict.items():
-		doc_dict[key] = [*values,*content_dict[key]]
+		doc_dict[key] = " ".join([*values,*content_dict[key]])
 	return doc_dict
 
 def preprocess(words):
@@ -96,34 +100,39 @@ def get_stopwords():
 
 def get_dtm(docs):
 	"""
-	Returns Document term matrix for dictionary where keys are document names and values are
-	list of preprocessed word tokens
+	Returns Docids and Document term matrix for dictionary where keys are document names and values are
+	string of preprocessed word tokens
 	"""
 	docids = sorted(docs.keys())
 	corpus = [docs[docid] for docid in docids]
-	dtm = shorttext.utils.DocumentTermMatrix(corpus, docids=docids,tfidf=True)
-	return dtm
+	# dtm = shorttext.utils.DocumentTermMatrix(corpus, docids=docids,tfidf=True)
+	vectorizer = TfidfVectorizer()
+	dtm = vectorizer.fit_transform(corpus)
+	return docids,dtm
 
-def cosine_sim(doc_dict1,doc_dict2):
-	"""
-	Finds cosine similarity between document pairs represented as dict of word tokens and tf/tf-idf scores
-	"""
-	keys = sorted(list(set(doc_dict1.keys()) | set(doc_dict2.keys())))
-	doc_list1 = [doc_dict1.get(key,0) for key in keys]
-	doc_list2 = [doc_dict2.get(key,0) for key in keys]
-	return dot(doc_list1, doc_list2)/(norm(doc_list2)*norm(doc_list2))
+# def cosine_sim(doc_dict1,doc_dict2):
+# 	"""
+# 	Finds cosine similarity between document pairs represented as dict of word tokens and tf/tf-idf scores
+# 	"""
+# 	keys = sorted(list(set(doc_dict1.keys()) | set(doc_dict2.keys())))
+# 	doc_list1 = [doc_dict1.get(key,0) for key in keys]
+# 	doc_list2 = [doc_dict2.get(key,0) for key in keys]
+# 	return dot(doc_list1, doc_list2)/(norm(doc_list2)*norm(doc_list2))
 
-def pair_sim(docid,dtm):
+def pair_sim(idx,docid,docids,dtm):
 	"""
 	Returns pandas dataframe which holds document name and pairwise cosine similarities 
 	for document with all other documents in the Document term matrix.
 	"""
-	cos_dict = {}
+	# Calculating cosine similarity of current doc with all other docs
+	sim_array = linear_kernel(dtm[idx], dtm).flatten()
+	# Converting array of similarities to dict 
+	cos_dict = dict(zip(docids,sim_array))
 	cos_dict['Document'] = docid
-	for doc in dtm.docids:
-		doc_dict1 = dtm.get_doc_tokens(docid)
-		doc_dict2 = dtm.get_doc_tokens(doc)
-		cos_dict[doc] = cosine_sim(doc_dict1,doc_dict2)
+	# for doc in dtm.docids:
+	# 	doc_dict1 = dtm.get_doc_tokens(docid)
+	# 	doc_dict2 = dtm.get_doc_tokens(doc)
+	# 	cos_dict[doc] = cosine_sim(doc_dict1,doc_dict2)
 	return cos_dict
 
 def write_db(repo_dir,sim_matrix):
@@ -143,17 +152,18 @@ def main(args):
 	docs = get_docs_dict(repo_dir)
 
 	# Creating Document Term Matrix using shorttext package
-	dtm = get_dtm(docs)
+	# EDIT : Changed to scikit-learn TfIdfVectorizer
+	docids,dtm = get_dtm(docs)
 
 	# Calculating the pairwise cosine similarities using the computed tf-idf values.
 	# For N documents in the corpus, an N*N matrix is to be generated, which stores the pairwise
 	# similarities for all pairs of documents.
 	# The results are stored in a pandas dataframe, and also written to local file
-	sim_matrix = pd.DataFrame(columns=['Document'] + dtm.docids)
+	sim_matrix = pd.DataFrame(columns=['Document'] + docids)
 	# Iterating through documents,and finding pairwise similarities
-	for docid in dtm.docids:
-		row_dict = pair_sim(docid,dtm)
-		sim_matrix = sim_matrix.append(pair_sim(docid,dtm),ignore_index=True)
+	for idx,docid in enumerate(docids):
+		row_dict = pair_sim(idx,docid,docids,dtm)
+		sim_matrix = sim_matrix.append(row_dict,ignore_index=True)
 	# Writing calculated similarity matrix to csv file
 	sim_matrix.to_csv('{0}/cosine_sim_matrix.csv'.format(repo_dir),index=False)
 	# Writing calculated similarity matrix to sqlite database
