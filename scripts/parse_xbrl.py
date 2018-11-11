@@ -12,28 +12,41 @@ def return_files(REPO_DIR):
 
 def extract_section1a(file):
 	print("Processing file : {0}".format(file))
-	with open(file,'r') as filein:
+	with open(file,'r',encoding="utf-8") as filein:
 		contents = filein.read()
-	
 	soup = BeautifulSoup(contents,features="lxml")
 	href_dict = {'1a' : '', '1b' : ''}
 	for a in soup.find_all(['a','A'], href=True):
-		if 'RISK FACTORS' in a.get_text().upper():
+		if re.search(r'RISK[ ]+FACTORS',a.get_text(),re.IGNORECASE):
 			href_dict['1a'] = a['href']
-		if 'UNRESOLVED STAFF COMMENTS' in a.get_text().upper():
+		if re.search(r'UNRESOLVED[ ]+STAFF[ ]+COMMENTS',a.get_text(),re.IGNORECASE):
 			href_dict['1b'] = a['href']
-
-	extracted = re.findall(r'<[Aa] [Nn][Aa][Mm][Ee]="{0}"(.*)<[Aa] [Nn][Aa][Mm][Ee]="{1}"'.format(href_dict['1a'][1:],href_dict['1b'][1:]), contents, re.DOTALL)
+	extracted = re.findall(r'<[Aa][ \n]+[^<>]*?[Nn][Aa][Mm][Ee]="{0}"(.*)<[Aa][ \n]+[^<>]*?[Nn][Aa][Mm][Ee]="{1}"'.format(href_dict['1a'][1:],href_dict['1b'][1:]), contents, re.IGNORECASE | re.DOTALL)
 	if len(extracted) == 0:
-		print("ERROR : Extraction failed for {0}".format(file))
-		shutil.copy2(file,'/home/jishnu/Documents/ISB/Term3/capstone/repo/isb_capstone-master/failed_files')
-		return None
-	
+		# Trying to extract based on href from page numbers in Table of contents
+		match = re.search(r'Risk Factors(.*?)Unresolved Staff Comments',contents,re.DOTALL | re.IGNORECASE)
+		if match:
+			match = match.group(1)
+		try:
+			href_dict['1a'] = re.search(r'href="(.*?)"',match).group(1)
+		except:
+			pass
+		match = re.search(r'Unresolved Staff Comments(.*?)Properties',contents,re.DOTALL | re.IGNORECASE)
+		if match:
+			match = match.group(1)
+		try:
+			href_dict['1b'] = re.search(r'href="(.*?)"',match).group(1)
+		except:
+			pass
+		extracted = re.findall(r'<[Aa] [Nn][Aa][Mm][Ee]="{0}"(.*)<[Aa] [Nn][Aa][Mm][Ee]="{1}"'.format(href_dict['1a'][1:],href_dict['1b'][1:]), contents, re.DOTALL)
+		if len(extracted) == 0:
+			print("ERROR : Extraction failed for {0}".format(file))
+			shutil.copy2(file,'/home/jishnu/Documents/ISB/Term3/capstone/repo/isb_capstone-master/failed_files')
+			return None
 	extracted = extracted[0]
 	file_name = re.sub('.xbrl','_1a.html',file)
-	with open(file_name,'w') as fileout:
+	with open(file_name,'w',encoding="utf-8") as fileout:
 		fileout.write(extracted)
-
 	return extracted
 
 def extract_headers(extracted,file):
@@ -58,7 +71,7 @@ def extract_headers(extracted,file):
 		# Writing headers file
 		dir_path = os.path.dirname(os.path.realpath(file))
 		file_name = os.path.join(dir_path,'headers')
-		with open(file_name,'w') as fileout:
+		with open(file_name,'w',encoding="utf-8") as fileout:
 			for idx,header in enumerate(headers):
 				fileout.write('HEADER_{0}:\n{1}\n'.format(idx+1,headers[idx]))
 
@@ -77,7 +90,7 @@ def write_contents(paragraphs,file):
 	file_name = os.path.join(dir_path,'contents')
 
 	# # Writing contents file
-	with open(file_name,'w') as fileout:
+	with open(file_name,'w',encoding="utf-8") as fileout:
 		for idx,paragraph in enumerate(paragraphs):
 			fileout.write('CONTENT_{0}:\n{1}\n'.format(idx+1,paragraphs[idx]))
 
