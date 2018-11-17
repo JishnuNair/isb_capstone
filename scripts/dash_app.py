@@ -3,6 +3,7 @@ import dash
 import datetime
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_table
 import pandas as pd
 import plotly.plotly as py
 import plotly.graph_objs as go
@@ -24,7 +25,7 @@ app.layout = html.Div(children=[
     html.H1(children='Analysis of Risk Factors'),
 
     html.Div(children='''
-        Please select company ticker below:
+        Please select company ticker and year below:
     '''),
     dcc.Dropdown(
     	id = 'ticker_dropdown',
@@ -34,12 +35,49 @@ app.layout = html.Div(children=[
     	],
     	value = 'aapl'
     	),
+    dcc.Dropdown(
+    	id = 'year_dropdown',
+    	options = [
+    	{'label' : '2015', 'value' : '2015'},
+    	{'label' : '2016', 'value' : '2016'},
+    	{'label' : '2017', 'value' : '2017'},
+    	{'label' : '2018', 'value' : '2018'}
+    	],
+    	value = '2015'
+    	),
+    html.H4(children='Sentiment Analysis',
+    	style={'textAlign' : 'left'}
+    	),
     dcc.Graph(
         id='sentiment-graph'
     ),
+    html.H4(children='Document Similarity',
+    	style={'textAlign' : 'left'}
+    	),
     dcc.Graph( id = 'similarity-trend'
-    	)
+    	),
+    html.H4(children='Top 10 most similar documents',
+    	style={'textAlign' : 'left'}
+    	),
+    html.Div(id='dash-table')
+
 ])
+
+@app.callback(
+    dash.dependencies.Output('dash-table', 'children'),
+    [dash.dependencies.Input('ticker_dropdown', 'value'),
+    dash.dependencies.Input('year_dropdown', 'value')
+    ])
+def update_table(select_ticker,select_year):
+	column = '{0}_{1}'.format(select_year,select_ticker)
+	table_df = sim_df[sim_df['Document'].str.contains(select_ticker) == False].nlargest(10,column)[['Document',column]]
+	table_df.columns = ['Document','Similarity']
+	# return table_df.to_dict("rows")
+	print(table_df)
+	return dash_table.DataTable(id = 'top-table',
+    	columns=[{"name": i, "id": i} for i in ['Document','Similarity']],
+    	data=table_df.to_dict("rows")
+    	)
 
 @app.callback(
     dash.dependencies.Output('sentiment-graph', 'figure'),
@@ -81,6 +119,7 @@ def update_simi_figure(select_ticker):
 	layout = go.Layout( title = 'Trend of Document Similarity in Risk Factors for {0}'.format(select_ticker))
 	figure = go.Figure(data = data, layout = layout)
 	return figure
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
