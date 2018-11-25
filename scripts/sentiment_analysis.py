@@ -44,7 +44,16 @@ def get_files(repo_dir,year,file_type):
 		dict_[key] = filename
 	return dict_
 
-def get_stats(header_dict,para_dict):
+def get_dates(repo_dir,year):
+	repo_dir = os.path.join(repo_dir,year)
+	dict_ = {}
+	for filename in glob.iglob('{0}/**/{1}'.format(repo_dir,'*.xbrl'),recursive=True):
+		key = re.search('/(\w+)/\d{4}-\d{2}-\d{2}',filename).group(1)
+		value = re.search('/(\d{4}-\d{2}-\d{2}).xbrl',filename).group(1)
+		dict_[key] = value
+	return dict_
+
+def get_stats(header_dict,para_dict,dates_dict):
 	stats_dict = {}
 	# Iterating through all companies
 	for key,value in header_dict.items():
@@ -60,6 +69,7 @@ def get_stats(header_dict,para_dict):
 		paragraphs = re.split('\nCONTENT_\d+:\n',header_contents)
 		# Fetching required stats for current company
 		stats_dict[key] = parse_header_contents(headers,paragraphs)
+		stats_dict[key].append(dates_dict[key])
 	return stats_dict
 
 def get_sentiments(header_dict,para_dict):
@@ -144,6 +154,7 @@ def write_db(repo_dir,years_stats_dict,years_senti_dict):
 	conn.execute("""CREATE TABLE IF NOT EXISTS STATS_SENTI
 		(TICKER CHAR(25) NOT  NULL,
 		 YEAR INT NOT NULL,
+		 FILING_DATE CHAR(10),
 		 HEADER_CNT INT NOT NULL,
 		 HEADER_WORD_CNT INT NOT NULL,
 		 PARA_WORD_CNT INT NOT NULL,
@@ -162,14 +173,14 @@ def write_db(repo_dir,years_stats_dict,years_senti_dict):
 	# Inserting records
 	for year,stats_dict in years_stats_dict.items():
 		for key,value in stats_dict.items():
-			print("INSERTING '{0}',{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13}".format(key,year,value[0],value[1],value[2],
+			print("INSERTING '{0}',{1},'{2}',{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}".format(key,year,value[3],value[0],value[1],value[2],
 					years_senti_dict[year][key][0],years_senti_dict[year][key][1],years_senti_dict[year][key][2],
 					years_senti_dict[year][key][3],years_senti_dict[year][key][4],years_senti_dict[year][key][5],
 					years_senti_dict[year][key][6],years_senti_dict[year][key][7],years_senti_dict[year][key][8]))
-			conn.execute("""INSERT OR REPLACE INTO STATS_SENTI (TICKER,YEAR,HEADER_CNT,HEADER_WORD_CNT,PARA_WORD_CNT,
+			conn.execute("""INSERT OR REPLACE INTO STATS_SENTI (TICKER,YEAR,FILING_DATE,HEADER_CNT,HEADER_WORD_CNT,PARA_WORD_CNT,
 				NEG_CNT,POS_CNT,CONSTR_CNT,LITI_CNT,UNCERT_CNT,MODAL_STR_CNT,MODAL_MOD_CNT,MODAL_WEA_CNT,TOT_CNT)
-				VALUES ('{0}',{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13});
-				""".format(key,year,value[0],value[1],value[2],
+				VALUES ('{0}',{1},'{2}',{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14});
+				""".format(key,year,value[3],value[0],value[1],value[2],
 					years_senti_dict[year][key][0],years_senti_dict[year][key][1],years_senti_dict[year][key][2],
 					years_senti_dict[year][key][3],years_senti_dict[year][key][4],years_senti_dict[year][key][5],
 					years_senti_dict[year][key][6],years_senti_dict[year][key][7],years_senti_dict[year][key][8]))
@@ -191,19 +202,21 @@ def main(args):
 	years_senti_dict = {}
 	for year in years:
 		# Creating list of header and contents files in directory
-		header_dict,para_dict = {},{}
+		header_dict,para_dict,dates_dict = {},{},{}
 		# Fetching header files as dict
 		header_dict = get_files(repo_dir,year,'headers')
 		# Fetching paragraph files as dict
 		para_dict = get_files(repo_dir,year,'contents')
-		# Keeping list of headers and paragraph dicts for each year
+		# Fetching actual filing dates for each document
+		dates_dict = get_dates(repo_dir,year)
+		# Keeping list of headers, paragraph and dates dicts for each year
 		years_data_dict[year] = [header_dict,para_dict]
 
 		# Extracting basic stats for headers and contents
 		stats_dict = {}
 		# Creating dict with company ticker as key and list of header counts,word counts in headers
 		# and word counts in paragraphs as value
-		stats_dict = get_stats(header_dict,para_dict)
+		stats_dict = get_stats(header_dict,para_dict,dates_dict)
 		# Keeping stats dict for each year
 		years_stats_dict[year] = stats_dict
 
