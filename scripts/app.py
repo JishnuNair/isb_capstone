@@ -46,6 +46,11 @@ app.layout = html.Div(children=[
     dcc.Dropdown(
     	id = 'year_dropdown',
     	options = [
+    	{'label' : '2010', 'value' : '2010'},
+    	{'label' : '2011', 'value' : '2011'},
+    	{'label' : '2012', 'value' : '2012'},
+    	{'label' : '2013', 'value' : '2013'},
+    	{'label' : '2014', 'value' : '2014'},
     	{'label' : '2015', 'value' : '2015'},
     	{'label' : '2016', 'value' : '2016'},
     	{'label' : '2017', 'value' : '2017'},
@@ -135,7 +140,7 @@ def update_simi_figure(select_ticker,select_year):
 		filtered_df['Year'] = filtered_df['Document'].str.split('_').str.get(0)
 		filtered_df['Year'] = filtered_df['Document'].apply(lambda x:senti_df.loc[(senti_df['TICKER'] == x.split('_')[1]) & (senti_df['YEAR'] == int(x.split('_')[0]))]['FILING_DATE'].tolist()[0])
 		columns = ['Year']
-		for year in ['2015','2016','2017','2018']:
+		for year in ['2010','2011','2012','2013','2014','2015','2016','2017','2018']:
 			columns.append('{0}_{1}'.format(year,ticker))
 		filtered_df = filtered_df[filtered_df.columns.intersection(columns)]
 		filtered_df.sort_values(by=['Year'],axis=0,inplace=True)

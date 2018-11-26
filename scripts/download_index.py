@@ -3,7 +3,7 @@ import datetime
 
 current_year = datetime.date.today().year
 current_quarter = (datetime.date.today().month - 1) // 3 + 1
-start_year = 2016
+start_year = 2008
 years = list(range(start_year, current_year))
 quarters = ['QTR1', 'QTR2', 'QTR3', 'QTR4']
 history = [(y, q) for y in years for q in quarters]
@@ -16,7 +16,7 @@ urls.sort()
 import sqlite3
 import requests
 
-con = sqlite3.connect('edgar_idx.db')
+con = sqlite3.connect('/home/jishnu/Documents/ISB/Term3/capstone/repo/isb_capstone-master/repo/edgar_idx.db')
 cur = con.cursor()
 cur.execute('DROP TABLE IF EXISTS idx')
 cur.execute('CREATE TABLE idx (cik TEXT, conm TEXT, type TEXT, date TEXT, path TEXT)')
