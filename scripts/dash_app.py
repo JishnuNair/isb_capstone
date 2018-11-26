@@ -19,6 +19,11 @@ senti_df['OV_SENTI'] = senti_df['OV_POS'] - senti_df['OV_NEG']
 
 sim_df = pd.read_csv('/home/jishnu/Documents/ISB/Term3/capstone/repo/isb_capstone-master/repo/cosine_sim_matrix.csv')
 
+companies = pd.read_csv('/home/jishnu/Documents/ISB/Term3/capstone/repo/isb_capstone-master/repo/companies.csv')
+companies = companies[['Company Name','Ticker']]
+companies.columns = ['label','value']
+companies['value'] = companies['value'].str.lower()
+
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(children=[
@@ -29,10 +34,7 @@ app.layout = html.Div(children=[
     '''),
     dcc.Dropdown(
     	id = 'ticker_dropdown',
-    	options = [
-    	{'label' : 'Apple Inc', 'value' : 'aapl'},
-    	{'label' : 'NVIDIA Corporation', 'value' : 'nvda'}
-    	],
+    	options = companies.to_dict("rows"),
     	value = 'aapl'
     	),
     dcc.Dropdown(
@@ -45,20 +47,31 @@ app.layout = html.Div(children=[
     	],
     	value = '2015'
     	),
-    html.H4(children='Sentiment Analysis',
+    html.H3(children='Sentiment Analysis',
     	style={'textAlign' : 'left'}
     	),
+    html.Div(children="""
+    	Trend of overall sentiment calculated using Loughran McDonald dictionary.
+    	"""),
     dcc.Graph(
         id='sentiment-graph'
     ),
-    html.H4(children='Document Similarity',
+    html.H3(children='Document Similarity',
     	style={'textAlign' : 'left'}
     	),
+    html.Div(children="""
+    	Document similarity for disclosures from same company over the years. Cosine similarity is used as distance metric. 
+
+    	The above selected year is used as baseline for calculating similarity.
+    	"""),
     dcc.Graph( id = 'similarity-trend'
     	),
-    html.H4(children='Top 10 most similar documents',
+    html.H3(children='Top 10 most similar documents',
     	style={'textAlign' : 'left'}
     	),
+    html.Div(children="""
+    	The top 10 most similar documents across the companies is obtained using the calculated cosine similarity matrix.
+    	"""),
     html.Div(id='dash-table')
 
 ])
@@ -72,11 +85,14 @@ def update_table(select_ticker,select_year):
 	column = '{0}_{1}'.format(select_year,select_ticker)
 	table_df = sim_df[sim_df['Document'].str.contains(select_ticker) == False].nlargest(10,column)[['Document',column]]
 	table_df.columns = ['Document','Similarity']
+	table_df['Year'] = table_df['Document'].str.split('_').str.get(0)
+	table_df['Ticker'] = table_df['Document'].str.split('_').str.get(1)
+	table_df['Company'] = table_df.apply(lambda row: companies.loc[companies['value'] == row['Ticker'],'label'].item(),axis=1)
 	# return table_df.to_dict("rows")
-	print(table_df)
+	# print(table_df)
 	return dash_table.DataTable(id = 'top-table',
-    	columns=[{"name": i, "id": i} for i in ['Document','Similarity']],
-    	data=table_df.to_dict("rows")
+    	columns=[{"name": i, "id": i} for i in ['Document','Company','Year','Similarity']],
+    	data=table_df[['Document','Company','Year','Similarity']].to_dict("rows")
     	)
 
 @app.callback(
@@ -97,8 +113,10 @@ def update_sentiment_figure(select_ticker):
 
 @app.callback(
     dash.dependencies.Output('similarity-trend', 'figure'),
-    [dash.dependencies.Input('ticker_dropdown', 'value')])
-def update_simi_figure(select_ticker):
+    [dash.dependencies.Input('ticker_dropdown', 'value'),
+    dash.dependencies.Input('year_dropdown', 'value')
+    ])
+def update_simi_figure(select_ticker,select_year):
 	filtered_df = sim_df[sim_df['Document'].str.contains(select_ticker)]
 	filtered_df['Year'] = filtered_df['Document'].str.split('_').str.get(0)
 	columns = ['Year']
@@ -106,14 +124,17 @@ def update_simi_figure(select_ticker):
 		columns.append('{0}_{1}'.format(year,select_ticker))
 	filtered_df = filtered_df[filtered_df.columns.intersection(columns)]
 	filtered_df.sort_values(by=['Year'],axis=0,inplace=True)
-	filtered_df['prev_sim'] = 0
-	for year in filtered_df['Year']:
-		if '{0}_{1}'.format(int(year) - 1,select_ticker) in filtered_df.columns:
-			filtered_df.loc[filtered_df['Year'] == year,'prev_sim'] = filtered_df.loc[filtered_df['Year'] == year,'{0}_{1}'.format(int(year)-1,select_ticker)]
+	select_year = '{0}_{1}'.format(select_year,select_ticker)
+	if select_year not in filtered_df.columns:
+		filtered_df[select_year] = 0
+	# filtered_df['prev_sim'] = 0
+	# for year in filtered_df['Year']:
+	# 	if '{0}_{1}'.format(int(year) - 1,select_ticker) in filtered_df.columns:
+	# 		filtered_df.loc[filtered_df['Year'] == year,'prev_sim'] = filtered_df.loc[filtered_df['Year'] == year,'{0}_{1}'.format(int(year)-1,select_ticker)]
 	filtered_df['Year'] = filtered_df['Year'].apply(lambda x:datetime.datetime(year=int(x),month=1,day=1))
 	data = [go.Scatter(
 			x=pd.to_datetime(filtered_df['Year']),
-			y=filtered_df['prev_sim'],
+			y=filtered_df[select_year],
 			name = "Similarity trend",
 			)]
 	layout = go.Layout( title = 'Trend of Document Similarity in Risk Factors for {0}'.format(select_ticker))
